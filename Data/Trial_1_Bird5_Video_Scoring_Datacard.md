@@ -12,7 +12,7 @@ English
 
 ## Data Instances
 
-A typical datapoint includes the timestamp in "h:m:s" format. It then includes either "1" for presence of a behavior or "0" for absence of a behavior. "Perch" represents perching behavior. This bird only perched on the right perch (reference the phidgets_data_4_2_2024_Trial_Bird5_Datacard.md). "Preen" represents preening, which the bird did not do. "Hover" represents hovering behavior. "Visitation" represents feeding events. 
+A typical datapoint includes the timestamp in "h:m:s" format. It then includes either "1" for presence of a behavior or "0" for absence of a behavior. "Perch" represents perching behavior. This bird only perched on the right perch (reference the phidgets_data_4_2_2024_Trial_Bird5_Datacard.md). "Preen" represents preening, which the bird did not do. "Hover" represents hovering behavior. "Visitation" represents feeding events. Due to time constraints, only times from 11:02:44 AM - 11:19:51 AM are completed. Assume cells without an integer are also "0" or absent of behavior. 
 
 ```json
 {
