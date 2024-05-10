@@ -1,0 +1,171 @@
+---
+title: "Output"
+author: "Sam M Sandoval"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+### Load Packages
+
+```{r load-packages, message=FALSE}
+#Load packages
+library(tidyverse)
+library(openintro)
+library(ggplot2)
+library(devtools)
+```
+
+
+```{r load-packages, message=FALSE}
+#Statistical analysis needs the package "jaccard", but the package "qvalue" should be installed first.
+
+if (!require("BiocManager", quietly = TRUE))
+    install.packages("BiocManager")
+
+BiocManager::install("qvalue")
+
+install_github("ncchung/jaccard")
+library(jaccard)
+```
+
+### Load Data
+```{r}
+#Load in the phidgets sensor scoring data and the video scoring data.
+
+phidgets<- read.csv("phidgets_data_Bird5_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
+str(phidgets)
+
+video <- read.csv("Trial_1_Bird_5_Video_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
+str(video)
+```
+
+### Cut Out Unneccessary Data
+```{r}
+#The video data is not the same length as the phidgets data, so cut it down to match.
+videosmall <- video[67:1094,]
+str(videosmall)
+
+#Focus just on the visitation data for both datasets, since this is the behavior we are comparing. Delete the Perch, Hover, and Preen columns
+
+videosmall$Perch <- NULL
+videosmall$Preening <- NULL
+videosmall$Hover <- NULL
+
+phidgets$Perch <- NULL
+phidgets$Preening <- NULL
+phidgets$Hover <- NULL
+```
+### Make Time Data Readable
+```{r}
+#Tell R that the time data should be treated as time
+
+phidgets$Time <- as.POSIXct(phidgets$Time, format = "%H:%M:%OS")
+videosmall$Time <- as.POSIXct(videosmall$Time, format= "%H:%M:%OS")
+```
+
+### Visualize Datasets
+```{r}
+#Create a scatterplot of the phidgets data to see what times a visitation occurred. 
+
+p <- ggplot(data = phidgets, aes(x = Time, y = Visitation)) +
+  geom_point() +
+  scale_x_datetime(date_breaks = "20 sec", date_labels = "%H:%M:%OS") +
+  theme(axis.text.x = element_text(size = 7, angle = 90))
+p
+```
+```{r}
+
+#Create a scatterplot of the video small data to see what times a visitation occurred
+v <- ggplot(data = videosmall, aes(x = Time, y = Visitation)) +
+  geom_point() +
+  scale_x_datetime(date_breaks = "20 sec", date_labels = "%H:%M:%OS") +
+  theme(axis.text.x = element_text(size = 7, angle = 90))
+v
+
+```
+
+### Statistical Analysis
+```{r}
+#Statistical Analysis code found at:
+#https://github.com/ncchung/jaccard/tree/master
+#https://github.com/ncchung/jaccard/blob/master/R/jaccard.test.bootstrap.R
+
+#Rename datasets
+x <- videosmall
+y <- phidgets
+
+# To compute the exact p-value of similarity between two binary vectors, x and y:
+
+#jaccard.test(x,y,method="exact")$pvalue
+
+# Using a bootstrap method to compare datasets
+
+#jaccard.test.bootstrap <- function(x, y, px = NULL, py = NULL, verbose=TRUE, fix="x", B=1000, seed=NULL) {
+#  if(!is.null(123)) set.seed(123)
+  # length of fingerprints
+#  if(length(x) != length(y)) stop("Length mismatch")
+#  m <- length(x)
+
+  # probabilities of ones
+#  if(is.null(px) | is.null(py)){
+#    px <- mean(x)
+#    py <- mean(y)
+#  }
+
+#  expectation <- jaccard.ev(x, y, px=px, py=py)
+#  j.obs <- jaccard(x, y, center=TRUE, px=px, py=py)
+#  degenerate <- FALSE
+#  if(px==1 | py==1 | sum(x) == length(x) | sum(y) == length(y)) {
+#    warning("One or both input vectors contain only 1's.")
+#    degenerate <- TRUE
+
+#  }
+#  if(px==0 | py==0 | sum(x) == 0 | sum(y) == 0) {
+#    warning("One or both input vectors contain only 0's")
+#    degenerate <- TRUE
+#  }
+#  if(degenerate) {
+#    return(list(statistics = 0, pvalue = 1, expectation = expectation))
+#  }
+
+#  j.null <- vector("numeric",B)
+#  if(verbose) message("Bootstrap Procedures : ")
+#  for(i in 1:B) {
+#    if(verbose & (i %% floor(B/10)) == 0) {
+#      message(paste0(i, " "),appendLF=FALSE)
+#    }
+
+#    if(fix == "x") {
+#      j.null[i] <- jaccard(x, sample(y, replace=TRUE), center=TRUE)
+#    } else if(fix == "y") {
+#      j.null[i] <- jaccard(sample(x, replace=TRUE), y, center=TRUE)
+#    } else {
+#      j.null[i] <- jaccard(sample(x, replace=TRUE), sample(y, replace=TRUE), center=TRUE)
+#    }
+#  }
+
+#  pvalue <- getp(abs(j.obs), abs(j.null))
+
+#  return(
+#    list(
+#      statistics = j.obs,
+#      statistics.null = j.null,
+#      pvalue = pvalue,
+#      expectation = expectation)
+#  )
+#}
+```
+
+
+
+
+
+
+
+
+
+
+
+
+
