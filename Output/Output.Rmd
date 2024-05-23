@@ -14,17 +14,14 @@ library(tidyverse)
 library(openintro)
 library(ggplot2)
 library(devtools)
-```
 
-
-```{r load-packages, message=FALSE}
 #Statistical analysis needs the package "jaccard", but the package "qvalue" 
-#should be installed first. Only need to do this once
+#should be installed first. This only needs to be done once.
 
-if (!require("BiocManager", quietly = TRUE))
-    install.packages("BiocManager")
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
 
-BiocManager::install("qvalue")
+#BiocManager::install("qvalue")
 
 #Then load this once installation is completed
 library(jaccard)
@@ -36,34 +33,43 @@ library(jaccard)
 #Load in the phidgets sensor scoring data and the video scoring data.
 
 phidgets<- read.csv("phidgets_data_Bird5_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
-str(phidgets)
 
 video <- read.csv("Trial_1_Bird_5_Video_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
-str(video)
 ```
 
-### Cut Out Unneccessary Data
+### Adjusting the Data
 ```{r}
-#Cut data down to look at a few feeding events, making sure they are showing the same feeding event.
+#Focus just on the visitation data for both datasets, since this is the behavior
+#we are comparing. Delete the Perch, Hover, and Preen columns.
+
+video$Perch <- NULL
+video$Preening <- NULL
+video$Hover <- NULL
+
+phidgets$Perch <- NULL
+phidgets$Preening <- NULL
+phidgets$Hover <- NULL
+
+#Cut down video data. Due to time constraints, only times from 
+#11:02:44 AM - 11:19:51 AM are completed in the video data.
+
+videoscored <- video[68:1094,]
+
+#Cut data down to look at a few feeding events, making sure they are showing the
+#same feeding event. This is for ease of plotting.
 
 phidgetssmall <- phidgets[268:314,]
-str(phidgetssmall)
 videosmall <- video[266:312,]
-str(videosmall)
 
-#Focus just on the visitation data for both datasets, since this is the behavior we are comparing. Delete the Perch, Hover, and Preen columns
+#Create a new column to label the datasets by the method used.
+phidgetssmall$Method <- rep("Phidgets")
+videosmall$Method <- rep("Video")
 
-videosmall$Perch <- NULL
-videosmall$Preening <- NULL
-videosmall$Hover <- NULL
-
-phidgetssmall$Perch <- NULL
-phidgetssmall$Preening <- NULL
-phidgetssmall$Hover <- NULL
 ```
+
 ### Make Time Data Readable
 ```{r}
-#Tell R that the time data should be treated as time
+#Tell R that the time data should be treated as time for later visualization
 
 phidgetssmall$Time <- as.POSIXct(phidgetssmall$Time, format = "%H:%M:%OS")
 videosmall$Time <- as.POSIXct(videosmall$Time, format= "%H:%M:%OS")
@@ -71,7 +77,8 @@ videosmall$Time <- as.POSIXct(videosmall$Time, format= "%H:%M:%OS")
 
 ### Visualize Datasets
 ```{r}
-#Create a scatterplot of the phidgets data to see what times a visitation occurred. 
+#Create a scatterplot of the phidgets data to see what times a 
+#visitation occurred. 
 
 p <- ggplot(data = phidgetssmall, aes(x = Time, y = Visitation)) +
   geom_point() +
@@ -82,7 +89,8 @@ p
 ```
 ```{r}
 
-#Create a scatterplot of the video small data to see what times a visitation occurred
+#Create a scatterplot of the video small data to see what times a 
+#visitation occurred
 v <- ggplot(data = videosmall, aes(x = Time, y = Visitation)) +
   geom_point() +
   scale_x_datetime(date_breaks = "1 sec", date_labels = "%H:%M:%OS") +
@@ -93,14 +101,33 @@ v
 ```
 
 ```{r}
+#Due to technical issues, the phidgets data records feeding times accurately, 
+#but reports them about a minute and a half before the real time shown in 
+#the video. Thus, we take this into account by creating a new time stamp where 
+#the data can be properly compared to each other based off the video time.
+
+phidgetssmall$Time_hack <-  videosmall$Time
+videosmall$Time_hack <-  videosmall$Time
+
+#Combine the small data sets
+small_data <- rbind(phidgetssmall, videosmall)
+```
+
+```{r}
 #Create plot showing both data sets together to compare accuracy and similarity
-b <- ggplot() +
-  geom_point(data = phidgetssmall, aes(x = Time, y = Visitation, color = "orange")) +
-  geom_point(data = videosmall, aes(x = Time, y = Visitation, color = "blue")) +
-  scale_color_manual(labels = c("Phidgets", "Video"), values = c("orange", "blue")) +
-  scale_x_datetime(date_breaks = "4 sec", date_labels = "%H:%M:%OS") +
+b <- ggplot(data = small_data,aes(x = Time_hack, y = Visitation, color = Method, fill = Method)) +
+ geom_line() +
+ scale_x_datetime(date_breaks = "2 sec", date_labels = "%H:%M:%OS") +
+  theme_minimal() +
   theme(axis.text.x = element_text(size = 7, angle = 90)) +
-  ggtitle("Phidget and Video Scoring")
+  ggtitle("Phidget and Video Scoring") +
+  xlab("Time") +
+  ylab("Behavior") +
+  geom_area(alpha = 0.5, position = "identity") +
+  scale_fill_manual(values = c("blue","yellow"),labels = c("Phidgets", "Video")) +
+  scale_color_manual(values = c("blue","yellow"),labels = c("Phidgets", "Video")) +
+  scale_y_continuous(breaks=c(0,1), 
+                     labels = c("No Visitation", "Visitation"))
 b
 ```
 
@@ -111,79 +138,15 @@ b
 #https://github.com/ncchung/jaccard/blob/master/R/jaccard.test.bootstrap.R
 
 #Rename datasets
-x <- videosmall$Visitation
-y <- phidgetssmall$Visitation
+x <- videoscored$Visitation
+y <- phidgets$Visitation
 
 # To compute the exact p-value of similarity between two binary vectors, x and y:
 
-jaccard.test(x,y,method="exact")$pvalue
+jaccard.test(x,y,method="exact")
 
 # Using a bootstrap method to compare datasets
 
-jaccard.test.bootstrap <- function(x, y, px = NULL, py = NULL, verbose=TRUE, fix="x", B=1000, seed=NULL) {
-  if(!is.null(seed)) set.seed(seed)
-  # length of fingerprints
-  if(length(x) != length(y)) stop("Length mismatch")
-  m <- length(x)
+bootstrap_results <- jaccard.test(x, y, method = "bootstrap", B = 1000)
 
-  # probabilities of ones
-  if(is.null(px) | is.null(py)){
-    px <- mean(x)
-    py <- mean(y)
-  }
-
-  expectation <- jaccard.ev(x, y, px=px, py=py)
-  j.obs <- jaccard(x, y, center=TRUE, px=px, py=py)
-  degenerate <- FALSE
-  if(px==1 | py==1 | sum(x) == length(x) | sum(y) == length(y)) {
-    warning("One or both input vectors contain only 1's.")
-    degenerate <- TRUE
-  }
-  if(px==0 | py==0 | sum(x) == 0 | sum(y) == 0) {
-    warning("One or both input vectors contain only 0's")
-    degenerate <- TRUE
-  }
-  if(degenerate) {
-    return(list(statistics = 0, pvalue = 1, expectation = expectation))
-  }
-
-  j.null <- vector("numeric",B)
-  if(verbose) message("Bootstrap Procedures : ")
-  for(i in 1:B) {
-    if(verbose & (i %% floor(B/10)) == 0) {
-      message(paste0(i, " "),appendLF=FALSE)
-    }
-
-    if(fix == "x") {
-      j.null[i] <- jaccard(x, sample(y, replace=TRUE), center=TRUE)
-    } else if(fix == "y") {
-      j.null[i] <- jaccard(sample(x, replace=TRUE), y, center=TRUE)
-    } else {
-      j.null[i] <- jaccard(sample(x, replace=TRUE), sample(y, replace=TRUE), center=TRUE)
-    }
-  }
-
-  pvalue <- getp(abs(j.obs), abs(j.null))
-
-  return(
-    list(
-      statistics = j.obs,
-      statistics.null = j.null,
-      pvalue = pvalue,
-      expectation = expectation)
-  )
-}
 ```
-
-
-
-
-
-
-
-
-
-
-
-
-
