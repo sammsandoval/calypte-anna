@@ -141,12 +141,14 @@ b
 x <- videoscored$Visitation
 y <- phidgets$Visitation
 
-# To compute the exact p-value of similarity between two binary vectors, x and y:
+#To compute the exact p-value of similarity between two binary vectors, x and y:
 
-jaccard.test(x,y,method="exact")
+jaccard_results <- jaccard.test(x,y,method="exact")
+jaccard_results
 
 # Using a bootstrap method to compare datasets
 
 bootstrap_results <- jaccard.test(x, y, method = "bootstrap", B = 1000)
-
+bootstrap_results
 ```
+
