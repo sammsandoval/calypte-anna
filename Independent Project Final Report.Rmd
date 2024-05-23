@@ -1,0 +1,202 @@
+---
+title: "Final Report"
+author: "Sam M Sandoval"
+date: "`r Sys.Date()`"
+output:
+  pdf_document: default
+  html_document: default
+---
+Comparing Sensors to Videography for Behavioral Assessment in Anna’s Hummingbirds (Calypte anna)
+
+## Introduction
+Bird ethologists often conduct research by scoring ethograms of direct observations or videos of animals either in the field or captivity. However, video scoring can be time consuming, making long-term behavioral assessment difficult. This project aims to develop a method of recording behaviors of Anna’s Hummingbirds (Calypte anna) using affordable small sensors. A cage was constructed consisting of two perches, each attached to a single-point load cell that recorded presence and absence on the perch. As hummingbirds typically do not perch on the floor, the amount of time in flight was determined by the time spent off the perch. Four feeders were equipped with infrared beam sensors to record the time and duration of feeding events. Sensor data was compared with traditional behavioral scoring. Initial results demonstrate a high level of fidelity between sensors and scored video recordings. Certain behaviors could also be associated with specific “signatures” in the scale data, such as preening, suggesting that the perch sensors may be sensitive for measuring activities while perched. This method could reduce the need for human scoring and be applied to many other model species.
+
+This project will create a foundation for the behavioral analyses I will use for my thesis. Fifteen Anna's Hummingbird individuals will be placed under four different photoperiods (daylengths). Food will be provided ad libitum, to prevent any effect of food availability. Scaled perches will monitor changes in activity levels and body mass, while feeders outfitted with sensors will monitor feeding frequency and duration. Before I can begin monitoring these individuals, I need to test if the sensors I have built will gather accurate data. These sensors should be able to record all these activities without any human interaction.
+
+## Hypotheses and Aims
+Null Hypothesis: Sensor data will not be as accurate as video data (i.e. there will be a difference between the sensor data and the video data).
+
+Alternative Hypothesis: Sensor data will be as accurate as video data (i.e there will be no difference between sensor data and video data).
+
+Aim 1: Gather behavioral data and prepare it for R studio
+
+Aim 2: Compare video and sensor data using R studio.
+
+## Data
+
+There are three datasets in this project, however only two will be used for analysis. The first is a dataset of sensor data recording mass changes and infrared beam breakage from an Anna's Hummingbird interacting with the sensors for two hours. Manual scoring of behaviors based off the changes seen in the Phidget sensor data produced the next data set. This data is binary with "1" indicating presence of a behavior and "0" indicating the absence of a behavior. Finally, the last dataset includes the manual behavioral scoring of the video of the two hour trial which is also binary. Due to time, only about 20 minutes of the video was scored. More information about these datasets is found here:
+
+GitHub repository URL: https://github.com/sammsandoval/calypte-anna
+
+## Statistics
+
+The Jaccard/Tanimoto index/coeffiecient statistic will be used to test the similarity of my two datasets and if the difference (or lack thereof) is statistically significant. This index is used for a variety of applications that generate binary data. It compares data by dividing the size of the intersection (the data points that are both the same value) by the size of the union (both data sets together). The resulting value is how similar the datasets are to each other; a large coefficient means they are very similar. In mathematical terms: 
+
+J = Jaccard similarity coefficient
+M11 = # of attributes where both sets have a value of 1
+M01 = # of attributes where the 1st set has a value of 0 and the 2nd has a value of 1
+M10 = # of attributes where the 1st set has a value of 1 and the second has a value of 0
+
+J = M11/(M11 + M01 + M10)
+
+After some deliberation, it was decided that this statistic should be used instead of the simple matching coefficient which includes the # of attributes where both sets have a value of 0. It treats both a "1" and a "0" with equal importance which isn't as helpful when focusing on the presence of behaviors.
+
+From the test we can see that the jaccard index equals 0.2439 since it is closer to 1, the two datasets are somewhat similar to each other. A p-value of  indicates a high significance and that the result is not due to random chance. In conclusion, the sensors are picking up a good portion of the same scores of the video. The most probable explanation for this score is that the sensors are much more accurate than the human eye. The manual scoring could have missed that one feeding because of the camera angle.
+
+### Load Packages
+
+```{r load-packages, message=FALSE}
+#Load packages
+library(tidyverse)
+library(openintro)
+library(ggplot2)
+library(devtools)
+
+#Statistical analysis needs the package "jaccard", but the package "qvalue" 
+#should be installed first. Only need to do this once
+
+#if (!require("BiocManager", quietly = TRUE))
+#    install.packages("BiocManager")
+
+#BiocManager::install("qvalue")
+
+#Then load this once installation is completed
+library(jaccard)
+
+```
+
+### Load Data
+```{r}
+#Load in the phidgets sensor scoring data and the video scoring data.
+
+phidgets<- read.csv("phidgets_data_Bird5_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
+
+video <- read.csv("Trial_1_Bird_5_Video_Scoring.csv", header = TRUE, stringsAsFactors = TRUE)
+```
+
+### Adjusting the Data
+```{r}
+#Focus just on the visitation data for both datasets, since this is the behavior
+#we are comparing. Delete the Perch, Hover, and Preen columns.
+
+video$Perch <- NULL
+video$Preening <- NULL
+video$Hover <- NULL
+
+phidgets$Perch <- NULL
+phidgets$Preening <- NULL
+phidgets$Hover <- NULL
+
+#Cut down video data. Due to time constraints, only times from 
+#11:02:44 AM - 11:19:51 AM are completed in the video data.
+
+videoscored <- video[68:1094,]
+
+#Cut data down to look at a few feeding events, making sure they are showing the
+#same feeding event. This is for ease of plotting.
+
+phidgetssmall <- phidgets[268:314,]
+videosmall <- video[266:312,]
+
+#Create a new column to label the datasets by the method used.
+phidgetssmall$Method <- rep("Phidgets")
+videosmall$Method <- rep("Video")
+
+```
+
+### Make Time Data Readable
+```{r}
+#Tell R that the time data should be treated as time for later visualization
+
+phidgetssmall$Time <- as.POSIXct(phidgetssmall$Time, format = "%H:%M:%OS")
+videosmall$Time <- as.POSIXct(videosmall$Time, format= "%H:%M:%OS")
+```
+
+### Visualize Datasets
+```{r}
+#Create a scatterplot of the phidgets data to see what times a 
+#visitation occurred. 
+
+p <- ggplot(data = phidgetssmall, aes(x = Time, y = Visitation)) +
+  geom_point() +
+  scale_x_datetime(date_breaks = "1 sec", date_labels = "%H:%M:%OS") +
+  theme(axis.text.x = element_text(size = 7, angle = 90)) +
+  ggtitle("Sensor Data Over Time") + 
+  xlab("Time") +
+  ylab("Behavior") +
+  scale_y_continuous(breaks=c(0,1), 
+                     labels = c("No Visitation", "Visitation"))
+p
+```
+```{r}
+
+#Create a scatterplot of the video small data to see what times a 
+#visitation occurred
+v <- ggplot(data = videosmall, aes(x = Time, y = Visitation)) +
+  geom_point() +
+  scale_x_datetime(date_breaks = "1 sec", date_labels = "%H:%M:%OS") +
+  theme(axis.text.x = element_text(size = 7, angle = 90)) +
+  ggtitle("Video Scoring Data Over Time") +
+  xlab("Time") +
+  ylab("Behavior") +
+  scale_y_continuous(breaks=c(0,1), 
+                     labels = c("No Visitation", "Visitation"))
+v
+
+```
+
+```{r}
+#Due to technical issues, the phidgets data records feeding times accurately, 
+#but reports them about a minute and a half before the real time shown in 
+#the video. Thus, we take this into account by creating a new time stamp where 
+#the data can be properly compared to each other based off the video time.
+
+phidgetssmall$Time_hack <-  videosmall$Time
+videosmall$Time_hack <-  videosmall$Time
+
+#Combine the small data sets
+small_data <- rbind(phidgetssmall, videosmall)
+```
+
+```{r}
+#Create plot showing both data sets together to compare accuracy and similarity
+b <- ggplot(data = small_data,aes(x = Time_hack, y = Visitation, color = Method, fill = Method)) +
+ geom_line() +
+ scale_x_datetime(date_breaks = "2 sec", date_labels = "%H:%M:%OS") +
+  theme_minimal() +
+  theme(axis.text.x = element_text(size = 7, angle = 90)) +
+  ggtitle("Phidget and Video Scoring") +
+  xlab("Time") +
+  ylab("Behavior") +
+  geom_area(alpha = 0.5, position = "identity") +
+  scale_fill_manual(values = c("blue","yellow"),labels = c("Phidgets", "Video")) +
+  scale_color_manual(values = c("blue","yellow"),labels = c("Phidgets", "Video")) +
+  scale_y_continuous(breaks=c(0,1), 
+                     labels = c("No Visitation", "Visitation"))
+b
+
+#Here we can see a line graph displaying both the phidget data and video data of
+#the same feeding events. Both data sets overlap most of the the time except for
+#a feeding that the phidgets picked up that the video scoring didn't.
+```
+
+### Statistical Analysis
+```{r}
+#Statistical Analysis code found at:
+#https://github.com/ncchung/jaccard/tree/master
+#https://github.com/ncchung/jaccard/blob/master/R/jaccard.test.bootstrap.R
+
+#Rename datasets
+x <- videoscored$Visitation
+y <- phidgets$Visitation
+
+#To compute the exact p-value of similarity between two binary vectors, x and y:
+
+jaccard_results <- jaccard.test(x,y,method="exact")
+jaccard_results
+
+# Using a bootstrap method to compare datasets
+
+bootstrap_results <- jaccard.test(x, y, method = "bootstrap", B = 1000)
+bootstrap_results
+```
